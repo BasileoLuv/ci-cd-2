@@ -1,0 +1,127 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.29.3">
+      <projectUrl>https://github.com/BasileoLuv/simple-java-service.git/</projectUrl>
+      <displayName></displayName>
+    </com.coravy.hudson.plugins.github.GithubProjectProperty>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>snapshot_version</name>
+          <description>example:
+1.0.10-20190227.072634-1</description>
+          <defaultValue></defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@4.0.0-rc">
+    <configVersion>2</configVersion>
+    <userRemoteConfigs>
+      <hudson.plugins.git.UserRemoteConfig>
+        <url>git@github.com:BasileoLuv/simple-java-service.git</url>
+        <credentialsId>8ffcf81c-2bd1-4681-882d-68cbd141b491</credentialsId>
+      </hudson.plugins.git.UserRemoteConfig>
+    </userRemoteConfigs>
+    <branches>
+      <hudson.plugins.git.BranchSpec>
+        <name>*/master</name>
+      </hudson.plugins.git.BranchSpec>
+    </branches>
+    <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+    <submoduleCfg class="list"/>
+    <extensions/>
+  </scm>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <jdk>JDK 8</jdk>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Maven>
+      <targets>package</targets>
+      <mavenName>Maven 3.6.0</mavenName>
+      <usePrivateRepository>false</usePrivateRepository>
+      <settings class="jenkins.mvn.DefaultSettingsProvider"/>
+      <globalSettings class="jenkins.mvn.DefaultGlobalSettingsProvider"/>
+      <injectBuildVariables>false</injectBuildVariables>
+    </hudson.tasks.Maven>
+    <hudson.tasks.Shell>
+      <command>cd target/classes
+currrelease=$(sed -n &apos;7p&apos; git.properties | awk &apos;{print $3}&apos; | sed &apos;s/^.//&apos; | sed &apos;s/.\{2\}$//&apos;)
+cd ../..
+release_version=$(echo $snapshot_version | cut -d- -f1)
+wget http://nexus:8081/repository/maven-snapshots/com/clc/Calc/${release_version}-SNAPSHOT/Calc-${snapshot_version}.jar
+unzip Calc*
+cd BOOT-INF/classes/
+currsnapshot=$(sed -n &apos;7p&apos; git.properties | awk &apos;{print $3}&apos; | sed &apos;s/^.//&apos; | sed &apos;s/.\{11\}$//&apos;)
+cd ../..
+if [  $currsnapshot &lt;  $currrelease ]
+then 
+  exit 1
+else 
+cd BOOT-INF/classes/
+  git merge $(sed -n &apos;10p&apos; git.properties | awk &apos;{print $3}&apos; | sed &apos;s/^.//&apos; | sed &apos;s/.\{2\}$//&apos;)
+cd ../..
+fi</command>
+    </hudson.tasks.Shell>
+    <hudson.tasks.Maven>
+      <targets>versions:set -DremoveSnapshot </targets>
+      <mavenName>Maven 3.6.0</mavenName>
+      <usePrivateRepository>false</usePrivateRepository>
+      <settings class="org.jenkinsci.plugins.configfiles.maven.job.MvnSettingsProvider" plugin="config-file-provider@3.5">
+        <settingsConfigId>70f34a99-a241-4ba8-9971-d2350ce88afb</settingsConfigId>
+      </settings>
+      <globalSettings class="jenkins.mvn.DefaultGlobalSettingsProvider"/>
+      <injectBuildVariables>false</injectBuildVariables>
+    </hudson.tasks.Maven>
+    <hudson.tasks.Shell>
+      <command>git add pom.xml
+git commit -m &quot;master version is $currsnapshot&quot;
+git tag $currsnapshot
+</command>
+    </hudson.tasks.Shell>
+    <hudson.tasks.Maven>
+      <targets>package deploy -DaltDeploymentRepository=nexus::default::http://nexus:8081/repository/maven-releases/</targets>
+      <mavenName>Maven 3.6.0</mavenName>
+      <usePrivateRepository>false</usePrivateRepository>
+      <settings class="org.jenkinsci.plugins.configfiles.maven.job.MvnSettingsProvider" plugin="config-file-provider@3.5">
+        <settingsConfigId>70f34a99-a241-4ba8-9971-d2350ce88afb</settingsConfigId>
+      </settings>
+      <globalSettings class="jenkins.mvn.DefaultGlobalSettingsProvider"/>
+      <injectBuildVariables>false</injectBuildVariables>
+    </hudson.tasks.Maven>
+  </builders>
+  <publishers>
+    <hudson.plugins.git.GitPublisher plugin="git@4.0.0-rc">
+      <configVersion>2</configVersion>
+      <pushMerge>false</pushMerge>
+      <pushOnlyIfSuccess>true</pushOnlyIfSuccess>
+      <forcePush>true</forcePush>
+      <branchesToPush>
+        <hudson.plugins.git.GitPublisher_-BranchToPush>
+          <targetRepoName>origin</targetRepoName>
+          <branchName>master</branchName>
+        </hudson.plugins.git.GitPublisher_-BranchToPush>
+      </branchesToPush>
+    </hudson.plugins.git.GitPublisher>
+  </publishers>
+  <buildWrappers>
+    <hudson.plugins.ws__cleanup.PreBuildCleanup plugin="ws-cleanup@0.37">
+      <deleteDirs>false</deleteDirs>
+      <cleanupParameter></cleanupParameter>
+      <externalDelete></externalDelete>
+      <disableDeferredWipeout>false</disableDeferredWipeout>
+    </hudson.plugins.ws__cleanup.PreBuildCleanup>
+    <hudson.tasks.AntWrapper plugin="ant@1.9">
+      <jdk>JDK 8</jdk>
+    </hudson.tasks.AntWrapper>
+  </buildWrappers>
+</project>
